@@ -162,11 +162,15 @@ button{cursor:pointer; border:0; background:none; padding:0}
 .grp{margin-top:12px; border-radius:20px; background:var(--card); border:1.5px solid var(--line); overflow:hidden}
 .grp.full{border-color:var(--green)}
 .gh{width:100%; display:flex; align-items:center; gap:12px; padding:12px; text-align:start}
-.gh .cnt{font-weight:800; color:var(--muted); direction:ltr}
+.gh .cnt{font-weight:800; color:var(--muted); font-size:14px; white-space:nowrap}
 .grp.full .gh .cnt{color:var(--green)}
 .chev{transition:transform .2s ease; color:var(--muted); display:grid}
 .chev.up{transform:rotate(180deg)}
-.grp ul{list-style:none; margin:0; padding:0 12px 8px}
+.grp ul{list-style:none; margin:0; padding:0}
+.gb{padding:0 12px 10px}
+.grp .row{border:0; border-top:1px solid var(--line); border-radius:0; margin:0; background:none; padding:10px 0}
+.grp .grid{padding-top:6px}
+.nm small.br,.pcard small.br{display:inline-block; margin-top:3px; padding:0 9px; border-radius:8px; background:var(--card); border:1px solid var(--line); color:var(--ink); font-size:12.5px; font-weight:600}
 .irow{width:100%; display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--line); text-align:start}
 .irow .cb{width:32px; height:32px; flex:none; border-radius:50%; border:2.5px solid var(--muted); display:grid; place-items:center; color:var(--on-accent)}
 .irow.done .cb{background:var(--green); border-color:var(--green); color:var(--on-green)}
@@ -260,7 +264,8 @@ const SEED=[
 ['كهربائيات','Electrical','🔌','بطاريات|Batteries|🔋;لمبة|Light bulb|💡;شاحن|Charger|🔌;سلك تمديد|Extension cord|🔌'],
 ['أدوات مطبخ','Kitchenware','🍳','أكواب|Cups|🥛;صحون|Plates|🍽️;أكياس تخزين|Storage bags|🛍️']
 ];
-const UNITS={piece:'حبة',kg:'كيلو',g:'جرام',pack:'علبة',bag:'كيس',bunch:'ربطة',liter:'لتر',carton:'كرتون',dozen:'دزينة'};
+const UNITS={kg:'كيلو',pack:'علبة',piece:'قطعة',liter:'لتر'};
+const OLD_UNITS={g:'جرام',bag:'كيس',bunch:'ربطة',carton:'كرتون',dozen:'دزينة'};
 
 /* ---------- الحالة ---------- */
 const LS='basket_local_v1';
@@ -279,11 +284,11 @@ const norm=s=>String(s||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/
 const prod=id=>S.catalog.prods.find(p=>p.id===id);
 const catOf=id=>S.catalog.cats.find(c=>c.id===id);
 const fmt=n=>String(Math.round(n*100)/100);
-const qtyLabel=it=>fmt(it.qty)+' '+(UNITS[it.unit]||'');
+const qtyLabel=it=>fmt(it.qty)+' '+(UNITS[it.unit]||OLD_UNITS[it.unit]||'');
 const okImg=s=>typeof s==='string'&&s.indexOf('data:image/')===0;
 const pic=(id,emoji)=>okImg(S.pimg[id])?`<img src="${S.pimg[id]}" alt="">`:`<span aria-hidden="true">${esc(emoji||'🛒')}</span>`;
 const prodPic=p=>{const c=catOf(p.cat);return pic(p.id,p.emoji||(c&&c.emoji))};
-const nameHtml=o=>{const a=o.ar||'',e=o.en||'';return `<b>${esc(a||e)}</b>${a&&e?`<small>${esc(e)}</small>`:''}`};
+const nameHtml=o=>{const a=o.ar||'',e=o.en||'',b=o.brand||'';return `<b>${esc(a||e)}</b>${a&&e?`<small>${esc(e)}</small>`:''}${b?`<small class="br">${esc(b)}</small>`:''}`};
 const cartItems=()=>Object.keys(S.cart).map(id=>({id,it:S.cart[id],p:prod(id)})).filter(x=>x.p&&catOf(x.p.cat));
 
 /* ---------- التخزين ---------- */
@@ -407,21 +412,14 @@ function mamaV(){
 function mamaProducts(){
   const cats=S.catalog.cats;
   if(!cats.length)return empty('🧺','لا توجد أقسام بعد','ابدأ بالقوائم المبدئية أو أضف قسمك الأول.',`<button class="btn pri" data-act="seed">إضافة القوائم المبدئية</button>`);
-  let h=`<div class="chips">${chipsHtml()}</div>`;
-  const show=cats.filter(c=>V.cat==='all'||V.cat===c.id);
-  let any=false;
-  show.forEach(c=>{
-    const ps=S.catalog.prods.filter(p=>p.cat===c.id);
-    if(!ps.length&&V.cat==='all')return;
-    any=true;
-    if(V.cat==='all')h+=`<h3 class="gt"><span>${esc(c.emoji||'')}</span>${esc(c.ar||c.en)}</h3>`;
-    h+=ps.map(p=>`<div class="row"><span class="thumb">${prodPic(p)}</span><div class="nm">${nameHtml(p)}</div>
+  return cats.map(c=>{
+    const ps=S.catalog.prods.filter(p=>p.cat===c.id),open=!!V.open[c.id];
+    const inner=(ps.length?ps.map(p=>`<div class="row"><span class="thumb">${prodPic(p)}</span><div class="nm">${nameHtml(p)}</div>
       <button class="ib" data-act="editP" data-id="${p.id}" aria-label="تعديل">${ic('edit',20)}</button>
-      <button class="ib dn" data-act="delP" data-id="${p.id}" aria-label="حذف">${ic('trash',20)}</button></div>`).join('');
-    if(!ps.length)h+=`<p class="note">لا توجد منتجات في هذا القسم.</p>`;
-  });
-  if(!any)h+=empty('🛒','لا توجد منتجات','اضغط «منتج» لإضافة أول منتج.');
-  return h;
+      <button class="ib dn" data-act="delP" data-id="${p.id}" aria-label="حذف">${ic('trash',20)}</button></div>`).join(''):`<p style="color:var(--muted);margin:8px 0">لا توجد منتجات في هذا القسم.</p>`)
+      +`<button class="btn ghost sm" style="margin-top:8px" data-act="addP" data-cat="${c.id}">${ic('plus',18)} إضافة منتج في هذا القسم</button>`;
+    return grpHtml(c,String(ps.length),open,inner);
+  }).join('');
 }
 function mamaCats(){
   if(!S.catalog.cats.length)return empty('🗂️','لا توجد أقسام بعد','أضف قسمًا أو ابدأ بالقوائم المبدئية.',`<button class="btn pri" data-act="seed">إضافة القوائم المبدئية</button>`);
@@ -437,21 +435,27 @@ function mamaSettings(){
 }
 
 /* --- عاملة المنزل --- */
+const grpHtml=(c,cnt,open,inner,full)=>`<section class="grp${full?' full':''}"><button class="gh" data-act="open" data-id="${c.id}" aria-expanded="${open}"><span class="thumb sm">${pic(c.id,c.emoji)}</span><span class="nm">${nameHtml(c)}</span><span class="cnt">${esc(cnt)}</span><span class="chev${open?' up':''}">${ic('chev')}</span></button>${open?`<div class="gb">${inner}</div>`:''}</section>`;
+const pcard=p=>{const it=S.cart[p.id];return `<button class="pcard${it?' in':''}" data-act="pick" data-id="${p.id}">${it?`<span class="badge">${esc(qtyLabel(it))}</span>`:''}<span class="thumb">${prodPic(p)}</span><span>${nameHtml(p)}</span></button>`};
 function servantV(){
   return top('عاملة المنزل','Servant','home')+
-  `<label class="search">${ic('search',20)}<input id="q" type="search" placeholder="ابحث عن منتج…" value="${esc(V.q)}" autocomplete="off"></label>
-  <div class="chips">${chipsHtml()}</div><div id="list"></div><div id="bar"></div>`;
+  `<label class="search">${ic('search',20)}<input id="q" type="search" placeholder="ابحث عن منتج أو شركة…" value="${esc(V.q)}" autocomplete="off"></label>
+  <div id="list"></div><div id="bar"></div>`;
 }
 function drawList(){
   const L=$('#list');if(!L)return;
   const q=norm(V.q.trim());
-  const ps=S.catalog.prods.filter(p=>(V.cat==='all'||p.cat===V.cat)&&(!q||norm((p.ar||'')+' '+(p.en||'')).indexOf(q)>=0));
+  const match=p=>!q||norm((p.ar||'')+' '+(p.en||'')+' '+(p.brand||'')).indexOf(q)>=0;
   if(!S.catalog.prods.length)L.innerHTML=empty('🧺','لا توجد منتجات بعد','تضيف ربة المنزل المنتجات، وستظهر هنا.');
-  else if(!ps.length)L.innerHTML=empty('🔍','لا توجد نتائج','جرّب كلمة أخرى أو قسمًا آخر.');
-  else L.innerHTML=S.catalog.cats.filter(c=>ps.some(p=>p.cat===c.id)).map(c=>
-    `<h3 class="gt"><span>${esc(c.emoji||'')}</span>${esc(c.ar||c.en)}</h3><div class="grid">${ps.filter(p=>p.cat===c.id).map(p=>{
-      const it=S.cart[p.id];
-      return `<button class="pcard${it?' in':''}" data-act="pick" data-id="${p.id}">${it?`<span class="badge">${esc(qtyLabel(it))}</span>`:''}<span class="thumb">${prodPic(p)}</span><span>${nameHtml(p)}</span></button>`}).join('')}</div>`).join('');
+  else{
+    const html=S.catalog.cats.map(c=>{
+      const all=S.catalog.prods.filter(p=>p.cat===c.id),ps=all.filter(match);
+      if(!ps.length)return '';
+      const open=q?true:!!V.open[c.id],inc=ps.filter(p=>S.cart[p.id]).length;
+      return grpHtml(c,inc?inc+' في السلة':String(all.length),open,`<div class="grid">${ps.map(pcard).join('')}</div>`,inc>0);
+    }).join('');
+    L.innerHTML=html||empty('🔍','لا توجد نتائج','جرّب كلمة أخرى.');
+  }
   const bar=$('#bar');
   if(bar)bar.innerHTML=`<div class="bar"><button class="btn pri wide" data-act="cart">${ic('cart')}<span>عرض السلة</span><span class="count">${cartItems().length}</span></button></div>`;
 }
@@ -476,13 +480,12 @@ function babaV(){
   if(!total)return h+empty('🛍️','لا توجد طلبات','عندما تضيف عاملة المنزل منتجات للسلة ستظهر هنا.');
   h+=`<div class="prog"><div class="ptop"><b class="pct">${pct}%</b><span>تم توفير ${done} من ${total}</span></div><div class="track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
   ${pct===100?`<div class="done-msg">اكتملت المشتريات 🎉</div><button class="btn pri wide" style="margin-top:12px" data-act="finish">إنهاء وبدء قائمة جديدة</button>`:''}</div>`;
-  S.catalog.cats.forEach(c=>{
-    const l=items.filter(x=>x.p.cat===c.id);if(!l.length)return;
+  h+=S.catalog.cats.map(c=>{
+    const l=items.filter(x=>x.p.cat===c.id);if(!l.length)return '';
     const d=l.filter(x=>x.it.done).length,open=!!V.open[c.id];
-    h+=`<section class="grp${d===l.length?' full':''}"><button class="gh" data-act="open" data-id="${c.id}" aria-expanded="${open}"><span class="thumb sm">${pic(c.id,c.emoji)}</span><span class="nm">${nameHtml(c)}</span><span class="cnt">${d}/${l.length}</span><span class="chev${open?' up':''}">${ic('chev')}</span></button>`;
-    if(open)h+=`<ul>${l.map(x=>`<li><button class="irow${x.it.done?' done':''}" data-act="tog" data-id="${x.id}" aria-pressed="${!!x.it.done}"><span class="cb">${x.it.done?ic('check',18):''}</span><span class="thumb sm">${prodPic(x.p)}</span><span class="nm">${nameHtml(x.p)}</span><span class="q">${esc(qtyLabel(x.it))}</span></button></li>`).join('')}</ul>`;
-    h+=`</section>`;
-  });
+    const inner=`<ul>${l.map(x=>`<li><button class="irow${x.it.done?' done':''}" data-act="tog" data-id="${x.id}" aria-pressed="${!!x.it.done}"><span class="cb">${x.it.done?ic('check',18):''}</span><span class="thumb sm">${prodPic(x.p)}</span><span class="nm">${nameHtml(x.p)}</span><span class="q">${esc(qtyLabel(x.it))}</span></button></li>`).join('')}</ul>`;
+    return grpHtml(c,d+'/'+l.length,open,inner,d===l.length);
+  }).join('');
   return h;
 }
 
@@ -528,14 +531,16 @@ function wirePicker(f,emojiKey){
   $('#noimg').onclick=()=>{pend.img=null;paint()};
 }
 
-function productForm(id){
+function productForm(id,preCat){
   const p=id?prod(id):null;
   if(!S.catalog.cats.length){toast('أضف قسمًا أولًا');return}
-  const defCat=p?p.cat:(V.cat!=='all'&&catOf(V.cat)?V.cat:S.catalog.cats[0].id);
+  const openCat=Object.keys(V.open).find(k=>V.open[k]&&catOf(k));
+  const defCat=p?p.cat:(preCat&&catOf(preCat)?preCat:(openCat||S.catalog.cats[0].id));
   pend={img:p&&okImg(S.pimg[id])?S.pimg[id]:null,orig:p&&okImg(S.pimg[id])?S.pimg[id]:null,fallback:(catOf(defCat)||{}).emoji};
   openModal(`<h3>${p?'تعديل المنتج':'إضافة منتج'}</h3><form id="f">${imgPicker()}
    <label class="field"><span>الاسم بالعربية</span><input name="ar" dir="auto" placeholder="مثال: طماطم" value="${esc(p&&p.ar)}"></label>
    <label class="field"><span>الاسم بالإنجليزية</span><input name="en" dir="auto" placeholder="e.g. Tomato" value="${esc(p&&p.en)}"></label>
+   <label class="field"><span>الشركة / العلامة التجارية (اختياري)</span><input name="brand" dir="auto" list="brands" placeholder="مثال: المراعي · Almarai" value="${esc(p&&p.brand)}"><datalist id="brands">${Array.from(new Set(S.catalog.prods.map(x=>x.brand).filter(Boolean))).map(b=>`<option value="${esc(b)}">`).join('')}</datalist></label>
    <label class="field"><span>القسم</span><select name="cat">${S.catalog.cats.map(c=>`<option value="${c.id}"${c.id===defCat?' selected':''}>${esc((c.emoji||'')+' '+(c.ar||c.en))}</option>`).join('')}</select></label>
    <label class="field"><span>رمز تعبيري (يظهر إن لم تضف صورة)</span><input name="emoji" maxlength="6" placeholder="🍅" value="${esc(p&&p.emoji)}"></label>
    <div class="acts"><button class="btn pri">حفظ</button><button type="button" class="btn ghost" data-act="close">إلغاء</button></div></form>`);
@@ -544,7 +549,7 @@ function productForm(id){
     e.preventDefault();
     const ar=f.ar.value.trim(),en=f.en.value.trim();
     if(!ar&&!en){toast('اكتب اسم المنتج بالعربية أو الإنجليزية');return}
-    const d={ar,en,cat:f.cat.value,emoji:f.emoji.value.trim()};
+    const d={ar,en,brand:f.brand.value.trim(),cat:f.cat.value,emoji:f.emoji.value.trim()};
     const c=clone(S.catalog);let pid=id;
     if(id){const i=c.prods.findIndex(x=>x.id===id);c.prods[i]=Object.assign({},c.prods[i],d)}
     else{pid=uid();c.prods.push(Object.assign({id:pid},d))}
@@ -597,15 +602,16 @@ function deleteCategory(id){
 }
 function defaultUnit(p){
   const c=catOf(p.cat)||{};
-  if(/بيض/.test(p.ar||''))return 'dozen';
   if(/خضر|فواك|لحوم|أسماك/.test(c.ar||''))return 'kg';
+  if(/عصائر/.test(c.ar||'')||/حليب|زيت|مياه/.test(p.ar||''))return 'liter';
+  if(/معلبات|حبوب|ألبان/.test(c.ar||''))return 'pack';
   return 'piece';
 }
 const stepOf=u=>(u==='kg'||u==='liter')?0.5:1;
 function qtyForm(id){
   const p=prod(id);if(!p)return;
   const it=S.cart[id];
-  M={id,unit:it?it.unit:defaultUnit(p)};
+  M={id,unit:(it&&UNITS[it.unit])?it.unit:defaultUnit(p)};
   const units=()=>Object.keys(UNITS).map(k=>`<button type="button" class="chip${k===M.unit?' on':''}" data-act="unit" data-u="${k}">${UNITS[k]}</button>`).join('');
   openModal(`<div class="qhead"><span class="thumb big">${prodPic(p)}</span><div class="nm">${nameHtml(p)}</div></div>
    <div class="stepper"><button type="button" class="ib big" data-act="inc" aria-label="زيادة">+</button><input id="qty" type="number" inputmode="decimal" min="0" step="any" value="${it?it.qty:1}" aria-label="الكمية"><button type="button" class="ib big" data-act="dec" aria-label="إنقاص">−</button></div>
@@ -634,16 +640,16 @@ function act(a,d){
   const ae=document.activeElement;if(ae&&ae.blur&&ae.id==='q')ae.blur();
   switch(a){
     case 'close':closeModal();break;
-    case 'home':V.view='home';V.role=null;V.target=null;render();break;
+    case 'home':V.view='home';V.role=null;V.target=null;V.open={};render();break;
     case 'role':{
-      const r=d.r;
+      const r=d.r;V.open={};
       if(r==='servant'){V.role='servant';V.view='app';V.q='';V.cat='all'}
       else if(V.authed[r]){V.role=r;V.view='app';V.tab='products';V.cat='all'}
       else{V.target=r;V.view='login'}
       render();break}
-    case 'tab':V.tab=d.t;V.cat='all';render();break;
+    case 'tab':V.tab=d.t;V.open={};render();break;
     case 'cat':V.cat=(V.cat===d.id&&d.id!=='all')?'all':d.id;render();break;
-    case 'addP':productForm();break;
+    case 'addP':productForm(undefined,d.cat);break;
     case 'editP':productForm(d.id);break;
     case 'delP':deleteProduct(d.id);break;
     case 'addC':categoryForm();break;
