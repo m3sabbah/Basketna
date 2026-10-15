@@ -195,7 +195,17 @@ button{cursor:pointer; border:0; background:none; padding:0}
 <div id="modal"></div>
 <div id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyAgfH8p4ZS95b9gDSXtm_mEG8GzBQBw-N0",
+  authDomain:"basketna-bcdfe.firebaseapp.com",
+  projectId:"basketna-bcdfe",
+  storageBucket:"basketna-bcdfe.firebasestorage.app",
+  messagingSenderId:"715400625766",
+  appId:"1:715400625766:web:f40f2bd4fbb235856777a7"
+};
 (function(){
 'use strict';
 
@@ -285,7 +295,7 @@ function persist(path,data){
   const run=()=>data===null?db.doc(path).delete():db.doc(path).set(data);
   Q[path]=(Q[path]||Promise.resolve()).then(run).catch(e=>{
     console.error(e);
-    toast(e&&e.code==='invalid_argument'?'ليس لديك صلاحية التعديل. اطلب صلاحية «مشارك» من صاحب التطبيق.':'تعذّر الحفظ، حاول مرة أخرى');
+    toast(e&&e.code==='permission-denied'?'رُفض الحفظ. راجع قواعد الأمان في Firebase.':'تعذّر الحفظ، حاول مرة أخرى');
   });
 }
 const setCatalog=c=>{S.catalog=c;persist('catalog/main',c)};
@@ -313,13 +323,12 @@ function seedDefaults(){
 async function init(){
   draw();
   try{
-    if(window.claude&&claude.use){
-      db=await Promise.race([claude.use('db'),new Promise(r=>setTimeout(()=>r(null),8000))]);
-      try{user=await claude.use('user')}catch(e){user=null}
+    if(window.firebase){
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db=firebase.firestore();
     }
-  }catch(e){db=null}
+  }catch(e){console.error(e);db=null}
   if(db){
-    try{if(user&&user.can){const w=await Promise.resolve(user.can('data.write'));if(w===false)canWrite=false}}catch(e){}
     mode='sync';
     const err=e=>{console.error(e);mode='local-err';render()};
     db.doc('catalog/main').onSnapshot(s=>{
@@ -354,9 +363,9 @@ const empty=(e,t,p,btn)=>`<div class="empty"><div class="big">${e}</div><h3>${t}
 function homeV(){
   let note;
   if(mode==='connecting')note='<div class="note">جارٍ الاتصال…</div>';
-  else if(mode==='sync')note=canWrite?'<div class="note">متزامن بين الأجهزة: ما يضيفه أحد يظهر للجميع مباشرة.</div>':'<div class="note warn">أنت في وضع القراءة فقط. اطلب صلاحية «مشارك» من صاحب التطبيق لتتمكن من الحفظ.</div>';
+  else if(mode==='sync')note=canWrite?'<div class="note">متصل ومتزامن بين الأجهزة: ما يضيفه أحد يظهر للجميع مباشرة.</div>':'<div class="note warn">أنت في وضع القراءة فقط. اطلب صلاحية «مشارك» من صاحب التطبيق لتتمكن من الحفظ.</div>';
   else if(mode==='local-err')note='<div class="note warn">تعذّر الاتصال بالمزامنة. أعد فتح التطبيق.</div>';
-  else note='<div class="note">يعمل على هذا الجهاز فقط. للمزامنة بين الأجهزة افتح التطبيق من رابط المشاركة بحسابك.</div>';
+  else note='<div class="note">يعمل على هذا الجهاز فقط لأن تعذّر الاتصال بـ Firebase. تأكد من الإنترنت ثم أعد فتح الصفحة.</div>';
   return `<section class="hero">${LOGO}<h1>سلتنا</h1><p class="en">Basket</p><p class="tag">مشتريات البيت في سلة واحدة</p></section>
   <div class="roles">
    <button class="role mama" data-act="role" data-r="mama"><span class="ico">👩‍🍳</span><span><b>ربة المنزل</b><small>Mama · إدارة المنتجات والأقسام</small></span><span class="lk">${ic('lock',18)}</span></button>
